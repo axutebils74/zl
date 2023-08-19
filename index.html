@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <input type="file" webkitdirectory id="ff">
+    <input type="checkbox" id="fastmode">快速模式
+    <button onclick="download()" hidden id="xiazai">下载</button>
+    <br>
+    <div id="div"></div>  
+</body>
+<script src="ffmpeg.js"></script>
+<script src="cssmin.min.js"></script>
+<script src="jszip.min.js"></script>
+<script src="uglify.min.js"></script>
+<script src="imagequant.js"></script>
+<script src="squoosh_oxipng_bg.js"></script>
+<script>
+    var obj = {}
+</script>
+<script>
+    var FFMPEG;
+    var str = ""
+    var encoder = new TextEncoder();
+    var imagequant,oxiPng
+    async function initFFMPEG() {
+        FFMPEG = null;
+        //FFMPEG = await createFFmpegCore({stderr(e){s[cnt++]=e}});
+        FFMPEG = await createFFmpegCore();
+    }
+    async function initSquoosh(){
+        imagequant  = await Imagequant();
+        oxiPng = await OxiPng();
+    }
+    async function compressPng(u){
+        var e = await imagequant.encode(u,16,0.3);
+        return oxiPng.encode(new Uint8Array(await e.arrayBuffer()),3,0)
+    }
+    async function smallmusic(b, e) {
+        FFMPEG.FS.writeFile("1", e);
+        FFMPEG.exec('-i', "1", '-b:a', '8k', '-ar', '8000', '-ac', '1', '2.' + b);
+        FFMPEG.exec('-i', '2.' + b, '-c', 'copy', '-bitexact', '-map_metadata', '-1', '-vbsf', 'filter_units=remove_types=6', '-vn', '3.' + b);
+        var k =  new Uint8Array(FFMPEG.FS.readFile('3.' + b));
+        FFMPEG.FS.unlink('1');
+        FFMPEG.FS.unlink('2.' + b);
+        FFMPEG.FS.unlink('3.' + b);
+        return k;
+    }
+    // var small_mp3 = fake_ogg = fake_wav = fake_m4a = fake_aac= fake_flac = smallmusic.bind(null,"mp3");
+    // var small_ogg = smallmusic.bind(null,"ogg");
+    // var small_m4a = smallmusic.bind(null,"m4a");
+    async function smallimg(b, e) {
+         FFMPEG.FS.writeFile("1", e);
+         FFMPEG.exec('-i', "1", '-q', '10000', '2.' + b);
+         var k = new Uint8Array(FFMPEG.FS.readFile('2.' + b))
+         FFMPEG.FS.unlink('1');
+         FFMPEG.FS.unlink('2.' + b);
+        return k;
+    }
+    // var small_png = smallimg.bind(null,"png");
+    // var small_jpg = smallimg.bind(null,"jpg");
+    // var small_gif = smallimg.bind(null,"gif");
+    // var small_jpeg = smallimg.bind(null,"jpeg");
+    async function small_video(type, e) {
+        FFMPEG.FS.writeFile("1", e);
+        FFMPEG.exec('-i', "1", '-b:v', '16k', '-r', '8', '-b:a', '8k', '-acodec', 'libmp3lame', '2.' + type);
+        FFMPEG.exec('-c', '2.' + type, '-bitexact', '-map_metadata', '-1', '-vbsf', 'filter_units=remove_types=6', '3.' + type);
+        var k = new Uint8Array(FFMPEG.FS.readFile('3.' + type));
+        FFMPEG.FS.unlink('2.' + type);
+        FFMPEG.FS.unlink('3.' + type);
+        return k;
+    }
+    async function encode(file, a) {
+        try {
+            var xi = file.webkitRelativePath;
+            var ext = xi.split(".").slice(-1)[0].toLowerCase()
+            if (/css/.test(ext)) {
+                var text = await file.text()
+                text = YAHOO.compressor.cssmin(text);
+                return obj.file(xi, text);
+            }
+            if (/js/.test(ext)) {
+                var text = await file.text()
+                var code = minify(text).code;
+                if(code) return obj.file(xi, code);
+                return obj.file(xi, text);
+            }
+            if(!fastmode.checked&&/png/.test(ext)){
+                try{
+                    var url = URL.createObjectURL(file);
+                    var d = await compressPng(url);
+                    if(d.length <=  file.size) return obj.file(xi, d);
+                }catch(e){
+                    await initSquoosh();
+                }
+            }
+            if (/json/.test(ext)) {
+                var text = await file.text()
+                try{
+                    text = JSON.stringify(JSON.parse(text))
+                }catch(e){}
+                return obj.file(xi, text);
+            }
+            var data = new Uint8Array(await file.arrayBuffer())
+            if (a > 2){ 
+                console.log(a)
+                return obj.file(xi,data);
+            }
+            if (/jpg|jpeg|png|gif/.test(ext)) {
+                return obj.file(xi, await smallimg(ext, data));
+            }
+            if (/mp3|ogg|wav|m4a|aac|flac/.test(ext)) {
+                return obj.file(xi, await smallmusic(ext, data));
+            }
+            return obj.file(xi, data);
+        } catch (e) {
+            await new Promise(res=>setTimeout(res,1000));
+            await initFFMPEG();
+            encode(file, a + 1);
+        }
+
+    }
+    ff.oninput = async function () {
+        if (!ff.value) return;
+        xiazai.hidden = 'hidden'
+        files = ff.files
+        obj = new JSZip();
+        await initFFMPEG();
+        await initSquoosh();
+        for (var i = 0; i < files.length; i++) {
+            div.innerHTML = i + '/' + files.length + "<br>" + files[i].webkitRelativePath;
+            await encode(ff.files[i],0)
+        }
+        div.innerHTML = files.length + '/' + files.length;
+        xiazai.hidden = ''
+    }
+    function download(){
+        obj.generateAsync({ type: "blob" }).then(function (blob) {
+            let a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'compress.zip'
+            a.click();
+        });
+    }
+</script>
+</html>
