@@ -9,4 +9,6 @@
 [https://unpkg.com/@ffmpeg/core@0.12.2/dist/umd/ffmpeg-core.wasm](https://unpkg.com/@ffmpeg/core@0.12.2/dist/umd/ffmpeg-core.wasm)
 ### uglifyjs
 [https://lisperator.net/uglifyjs/](https://lisperator.net/uglifyjs/)
+### jszip
+[https://github.com/Stuk/jszip](https://github.com/Stuk/jszip)
 
