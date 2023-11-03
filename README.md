@@ -11,4 +11,6 @@
 [https://lisperator.net/uglifyjs/](https://lisperator.net/uglifyjs/)
 ### jszip
 [https://github.com/Stuk/jszip](https://github.com/Stuk/jszip)
+### terser
+[https://github.com/terser/terser/](https://github.com/terser/terser/)
 
