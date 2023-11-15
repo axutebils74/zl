@@ -82,7 +82,7 @@
                 text = YAHOO.compressor.cssmin(text);
                 return obj.file(xi, text);
             }
-            if (/js/.test(ext)) {
+            if (/js/.test(ext) && ext!= "json") {
                 var text = await file.text()
                 try{
                     var code = (await Terser.minify(text)).code;
